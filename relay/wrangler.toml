@@ -1,0 +1,7 @@
+name = "circadianphase-whoop-relay"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+
+# Set secrets with:  wrangler secret put WHOOP_CLIENT_ID ; wrangler secret put WHOOP_CLIENT_SECRET
+[vars]
+ALLOWED_ORIGIN = "https://YOUR-USER.github.io"
