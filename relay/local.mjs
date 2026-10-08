@@ -5,9 +5,13 @@ import { handle } from './worker.js';
 const env = {
   WHOOP_CLIENT_ID: process.env.WHOOP_CLIENT_ID,
   WHOOP_CLIENT_SECRET: process.env.WHOOP_CLIENT_SECRET,
-  ALLOWED_ORIGIN: process.env.ALLOWED_ORIGIN || 'http://localhost:5173',
+  ALLOWED_ORIGIN: process.env.ALLOWED_ORIGIN || 'http://localhost:*,http://127.0.0.1:*',
 };
 const port = Number(process.env.PORT || 8787);
+if (!env.WHOOP_CLIENT_ID || !env.WHOOP_CLIENT_SECRET) {
+  console.error('Set WHOOP_CLIENT_ID and WHOOP_CLIENT_SECRET, e.g.\n  WHOOP_CLIENT_ID=... WHOOP_CLIENT_SECRET=... npm run relay');
+  process.exit(1);
+}
 
 http
   .createServer(async (req, res) => {
@@ -20,6 +24,7 @@ http
       body: body && req.method !== 'GET' && req.method !== 'HEAD' ? body : undefined,
     });
     const r = await handle(request, env);
+    console.log(new Date().toISOString(), req.method, req.url, '->', r.status);
     res.writeHead(r.status, Object.fromEntries(r.headers.entries()));
     res.end(Buffer.from(await r.arrayBuffer()));
   })
