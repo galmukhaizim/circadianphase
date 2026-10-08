@@ -30,6 +30,38 @@ function randomState(): string {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
 }
 
+/** Accept "localhost:8787" or "http://localhost:8787/" and return a canonical base with one trailing slash. */
+export function normalizeRelayUrl(raw: string): string {
+  let u = raw.trim();
+  if (!u) return '';
+  if (!/^https?:\/\//i.test(u)) u = 'http://' + u;
+  return u.replace(/\/+$/, '') + '/';
+}
+
+export interface RelayHealth {
+  ok: boolean;
+  configured: boolean;
+  allowedOrigins?: string[];
+}
+
+/** Ping the relay. Throws with a human-readable reason when unreachable. */
+export async function testRelay(rawUrl: string): Promise<RelayHealth> {
+  const base = normalizeRelayUrl(rawUrl);
+  if (!base) throw new WhoopError('Enter the relay URL first.');
+  let r: Response;
+  try {
+    r = await fetch(base + 'health');
+  } catch {
+    throw new WhoopError(
+      `Could not reach ${base}. Is the relay running in a Terminal window (npm run relay inside the circadianphase folder) and is the URL exactly what it printed?`,
+    );
+  }
+  if (!r.ok) throw new WhoopError(`Relay answered ${r.status} at ${base}health. That does not look like the WHOOP relay.`);
+  const h = (await r.json()) as RelayHealth;
+  if (!h.configured) throw new WhoopError('Relay is running but has no WHOOP_CLIENT_ID / WHOOP_CLIENT_SECRET. Restart it with both set.');
+  return h;
+}
+
 export function redirectUri(): string {
   // Same page, no query string; must be registered verbatim in the WHOOP dashboard.
   return `${location.origin}${location.pathname}`;
@@ -93,11 +125,16 @@ async function storeTokens(tok: TokenResponse): Promise<void> {
 async function relayPost<T>(path: string, body: Record<string, string>): Promise<T> {
   const s = await getSettings();
   if (!s.whoopRelayUrl) throw new WhoopError('Relay URL not configured.');
-  const r = await fetch(new URL(path, s.whoopRelayUrl.replace(/\/?$/, '/')).toString(), {
+  let r: Response;
+  try {
+    r = await fetch(normalizeRelayUrl(s.whoopRelayUrl) + path.replace(/^\//, ''), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
-  });
+    });
+  } catch {
+    throw new WhoopError(`Could not reach the relay at ${normalizeRelayUrl(s.whoopRelayUrl)}. Is it running? Use "Test relay" on the WHOOP tab.`);
+  }
   if (!r.ok) throw new WhoopError(`Relay ${path} failed: ${r.status} ${await r.text()}`, r.status);
   return (await r.json()) as T;
 }
@@ -130,8 +167,13 @@ export async function disconnect(revoke = true): Promise<void> {
 async function apiFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const s = await getSettings();
   const token = await validAccessToken();
-  const base = s.whoopRelayUrl!.replace(/\/?$/, '/') + 'whoop';
-  const r = await fetch(base + path, { ...init, headers: { ...(init.headers ?? {}), authorization: `Bearer ${token}` } });
+  const base = normalizeRelayUrl(s.whoopRelayUrl!) + 'whoop';
+  let r: Response;
+  try {
+    r = await fetch(base + path, { ...init, headers: { ...(init.headers ?? {}), authorization: `Bearer ${token}` } });
+  } catch {
+    throw new WhoopError(`Could not reach the relay at ${normalizeRelayUrl(s.whoopRelayUrl!)}. Is it still running?`);
+  }
   if (r.status === 429) throw new WhoopError('WHOOP rate limit hit (100/min, 10k/day). Try again shortly.', 429);
   if (r.status === 401) throw new WhoopError('WHOOP rejected the token; reconnect.', 401);
   if (!r.ok) throw new WhoopError(`WHOOP ${path}: ${r.status} ${await r.text()}`, r.status);

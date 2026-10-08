@@ -75,6 +75,9 @@ export async function handle(req, env) {
   const url = new URL(req.url);
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env, {}, req) });
   if (!originAllowed(req, env)) return json(env, { error: `origin not allowed: ${req.headers.get('origin')}` }, 403, req);
+  if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/health')) {
+    return json(env, { ok: true, configured: Boolean(env.WHOOP_CLIENT_ID && env.WHOOP_CLIENT_SECRET), allowedOrigins: allowedOrigins(env) }, 200, req);
+  }
   if (!env.WHOOP_CLIENT_ID || !env.WHOOP_CLIENT_SECRET) return json(env, { error: 'relay not configured' }, 500, req);
 
   if (req.method === 'POST' && url.pathname === '/token') {

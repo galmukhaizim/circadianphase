@@ -4,7 +4,7 @@ import { db, saveSettings } from '../db/db';
 import { parseSeriesCsv, stageDistribution, whoopSleepToEntry } from '../lib/markers';
 import { formatDuration, formatHours } from '../lib/time';
 import type { Model } from '../useModel';
-import { beginAuthorization, disconnect, redirectUri, syncRecent } from '../whoop/client';
+import { beginAuthorization, disconnect, normalizeRelayUrl, redirectUri, syncRecent, testRelay } from '../whoop/client';
 import { WHOOP_SCOPES } from '../whoop/types';
 
 export function WhoopTab({ m, oauthMessage }: { m: Model; oauthMessage: string | null }) {
@@ -80,7 +80,8 @@ export function WhoopTab({ m, oauthMessage }: { m: Model; oauthMessage: string |
             onSubmit={(e) => {
               e.preventDefault();
               run(async () => {
-                await saveSettings({ whoopClientId: clientId.trim(), whoopRelayUrl: relay.trim() });
+                await saveSettings({ whoopClientId: clientId.trim(), whoopRelayUrl: normalizeRelayUrl(relay) });
+                await testRelay(relay);
                 await beginAuthorization();
                 return 'Redirecting to WHOOP…';
               });
@@ -92,13 +93,27 @@ export function WhoopTab({ m, oauthMessage }: { m: Model; oauthMessage: string |
             </label>
             <label>
               Relay URL
-              <input type="url" placeholder="http://localhost:8787" value={relay} onChange={(e) => setRelay(e.target.value)} required />
+              <input type="text" placeholder="http://localhost:8787" value={relay} onChange={(e) => setRelay(e.target.value)} required />
             </label>
             <label className="wide">
               Redirect URL to register in the WHOOP dashboard
               <code>{redirectUri()}</code>
             </label>
             <div className="row">
+              <button
+                className="secondary"
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    const h = await testRelay(relay);
+                    await saveSettings({ whoopRelayUrl: normalizeRelayUrl(relay) });
+                    return `Relay reachable at ${normalizeRelayUrl(relay)} and configured. Allowed origins: ${(h.allowedOrigins ?? []).join(', ')}. Now click Connect WHOOP.`;
+                  })
+                }
+              >
+                Test relay
+              </button>
               <button className="primary" type="submit" disabled={busy}>
                 Connect WHOOP
               </button>
