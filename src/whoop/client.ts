@@ -34,8 +34,20 @@ function randomState(): string {
 export function normalizeRelayUrl(raw: string): string {
   let u = raw.trim();
   if (!u) return '';
-  if (!/^https?:\/\//i.test(u)) u = 'http://' + u;
+  if (u.startsWith('/')) {
+    // Relative path on the app's own origin (the dev server proxies /relay to the local relay).
+    const origin = typeof location !== 'undefined' ? location.origin : '';
+    u = origin + u;
+  } else if (!/^https?:\/\//i.test(u)) {
+    u = 'http://' + u;
+  }
   return u.replace(/\/+$/, '') + '/';
+}
+
+/** Suggested relay URL for a fresh local setup. */
+export function defaultRelayUrl(): string {
+  if (typeof location === 'undefined') return '';
+  return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? `${location.origin}/relay` : '';
 }
 
 export interface RelayHealth {

@@ -4,7 +4,7 @@ import { db, saveSettings } from '../db/db';
 import { parseSeriesCsv, stageDistribution, whoopSleepToEntry } from '../lib/markers';
 import { formatDuration, formatHours } from '../lib/time';
 import type { Model } from '../useModel';
-import { beginAuthorization, disconnect, normalizeRelayUrl, redirectUri, syncRecent, testRelay } from '../whoop/client';
+import { beginAuthorization, defaultRelayUrl, disconnect, normalizeRelayUrl, redirectUri, syncRecent, testRelay } from '../whoop/client';
 import { WHOOP_SCOPES } from '../whoop/types';
 
 export function WhoopTab({ m, oauthMessage }: { m: Model; oauthMessage: string | null }) {
@@ -15,7 +15,7 @@ export function WhoopTab({ m, oauthMessage }: { m: Model; oauthMessage: string |
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(oauthMessage);
   const [clientId, setClientId] = useState(m.settings.whoopClientId ?? '');
-  const [relay, setRelay] = useState(m.settings.whoopRelayUrl ?? '');
+  const [relay, setRelay] = useState(m.settings.whoopRelayUrl || defaultRelayUrl());
   const [csvDate, setCsvDate] = useState('');
   const [csvTz, setCsvTz] = useState(() => {
     const off = -new Date().getTimezoneOffset();
@@ -93,7 +93,11 @@ export function WhoopTab({ m, oauthMessage }: { m: Model; oauthMessage: string |
             </label>
             <label>
               Relay URL
-              <input type="text" placeholder="http://localhost:8787" value={relay} onChange={(e) => setRelay(e.target.value)} required />
+              <input type="text" placeholder="http://localhost:5173/relay" value={relay} onChange={(e) => setRelay(e.target.value)} required />
+              <small>
+                Running locally with <code>npm run dev</code> and <code>npm run relay</code>: use <code>{defaultRelayUrl() || 'http://localhost:5173/relay'}</code>. The dev server forwards it to the
+                relay on port 8787, so no cross-port request is needed. Hosted: the deployed relay's URL.
+              </small>
             </label>
             <label className="wide">
               Redirect URL to register in the WHOOP dashboard

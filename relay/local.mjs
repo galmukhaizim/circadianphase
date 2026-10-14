@@ -24,9 +24,16 @@ http
       body: body && req.method !== 'GET' && req.method !== 'HEAD' ? body : undefined,
     });
     const r = await handle(request, env);
-    const note = r.status === 403 ? `  (origin: ${req.headers.origin || 'none'})` : '';
+    const note = `  (origin: ${req.headers.origin || 'none'})`;
     console.log(new Date().toISOString(), req.method, req.url, '->', r.status + note);
     res.writeHead(r.status, Object.fromEntries(r.headers.entries()));
     res.end(Buffer.from(await r.arrayBuffer()));
+  })
+  .on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      console.error(`Port ${port} is already in use. The relay is probably already running in another Terminal window; use that one, or stop it with Ctrl-C first.`);
+      process.exit(1);
+    }
+    throw e;
   })
   .listen(port, () => console.log(`WHOOP relay listening on http://localhost:${port} (allowed origin ${env.ALLOWED_ORIGIN})`));

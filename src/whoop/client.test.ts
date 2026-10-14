@@ -8,3 +8,12 @@ describe('normalizeRelayUrl', () => {
     expect(normalizeRelayUrl('')).toBe('');
   });
 });
+
+describe('normalizeRelayUrl relative paths', () => {
+  it('resolves a leading slash against the page origin', () => {
+    (globalThis as unknown as { location: { origin: string; hostname: string } }).location = { origin: 'http://localhost:5173', hostname: 'localhost' };
+    expect(normalizeRelayUrl('/relay')).toBe('http://localhost:5173/relay/');
+    expect(normalizeRelayUrl('/relay/')).toBe('http://localhost:5173/relay/');
+    delete (globalThis as { location?: unknown }).location;
+  });
+});

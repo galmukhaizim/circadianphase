@@ -21,6 +21,9 @@ The manual path of the app does not need this at all.
      `npx wrangler secret put WHOOP_CLIENT_ID` and `... WHOOP_CLIENT_SECRET`; set `ALLOWED_ORIGIN`
      in `wrangler.toml` to the static site's origin.
 3. In the app's WHOOP tab enter the client ID and the relay URL, then click Connect.
+   - Local dev: use `http://localhost:5173/relay`. The Vite dev server proxies `/relay/*` to
+     `http://localhost:8787`, so the browser makes a same-origin request and no CORS is involved.
+   - Hosted: use the deployed relay's own URL.
 
 ## Endpoints
 
